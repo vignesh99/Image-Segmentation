@@ -7,11 +7,12 @@ from skimage.transform import resize
 
 #Load image for test
 path1  = r"img1.jpg"
-src1 = cv2.imread(path1,0)/255
+src1 = cv2.imread(path1,0)
 src1 = resize(src1, (src1.shape[0] // 2, src1.shape[1] // 2),anti_aliasing=True)
-path2  = r"img5.jpg"
+#path2  = r"thres_palmleaf1.png"
+path2  = r"img6.jpg"
 src2 = cv2.imread(path2,0)
-src2 = resize(src2, (src2.shape[0] // 2, src2.shape[1] // 2),anti_aliasing=True)
+src2 = resize(src2, (src2.shape[0] // 4, src2.shape[1] // 4),anti_aliasing=True)
 
                                 #Get indices of radius R
 def indRad(img,r) :
@@ -67,7 +68,7 @@ def indRad(img,r) :
     
     indrow = fullind[1]+indcenr-r               #Obtain indrow
     indcol = fullind[2]+indcenc-r               #Obtain indcol
-    indices = indrow*shape(img)[0] + indcol     #Suitable format for sparse matrix generation
+    indices = indrow*shape(img)[1] + indcol     #Suitable format for sparse matrix generation
         
     indptr = cumsum(np.unique(fullind[0],return_counts= True)[1])
     indptr = array([0] + list(indptr))          #Obtain indptr
