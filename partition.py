@@ -40,20 +40,83 @@ def gpart(D,W,e=2) :
     print("Entered gpart")
                                     #Solve Eigen system
     eigval,eigvec = linal.eigsh(D-W,e,M=D,which = 'SA')
-    eigvecSec = eigvec[:,1]           #Second smallest Eigen vector
+    eigvecSec = eigvec[:,1]         #Second smallest Eigen vector
     #print(eigvecSec)
     #print(eigval)
     #print(eigvecSec[rn.sample(range(len(eigvecSec)),3)])
     #print("Enter opt")
     thres = scipy.optimize.fmin(func = Ncut,x0 = median(eigvecSec),args = (eigvecSec,D,W))[0]
-    print(thres,mean(eigvecSec))
+    ncut = Ncut(thres,eigvecSec,D,W)
+    #print(thres,mean(eigvecSec))
+    print(thres,ncut)
     #thres = median(eigvecSec)
     #thres = mean(eigvecSec)
     #thres = 0
     athres = np.where(eigvecSec >= thres)[0]
     bthres = np.where(eigvecSec < thres)[0]
+    print(len(athres),len(bthres))
    
-    return athres,bthres
+    return athres,bthres,ncut
+
+                                    #Recursively obtain all the partitions
+def recpart(part,W,start,Arthres=1500,NCthres=0.03) :
+    '''
+    I/p to function
+    W : Weighted graph used to extract submatrices
+    partition : final set of partitions
+    newpart : indices of the higher partition which has to be broken further
+    Athres : min area threshold
+    NCthres : min Ncut threshold
+    O/p of function
+    partition : final set of partitions
+    '''
+    print("Entered recpart")
+                                #Reduce reduntant comuptation at start
+    if start == True :
+        W0 = W
+        start = False
+    else :                      #Take the required portion of weighted graph
+        print("CP1")
+        row = part.repeat(len(part))
+        col = array(list(part)*len(part))
+        W0 = W.tolil()[row,col].reshape(len(part),len(part))
+        W0 = W0.tocsr()    
+    print(type(W0),shape(W0))
+    D0 = Dgraph(W0)
+    athres,bthres,ncut = gpart(D0,W0)
+    print("CP2")
+    partition = []
+    if ncut <= NCthres and ncut >= 0.0001:        #If there is sufficient dissimilarity
+        status = "NA"
+        print("CP3")
+        if len(athres) >= Arthres :
+            apartition,astat = recpart(athres,W,start)
+        else :
+            #astat = "A"
+            status = "A"
+        print("CP4")
+        if len(bthres) >= Arthres :
+            bpartition,bstat = recpart(bthres,W,start)
+        else :
+            #bstat = "A"
+            status = "A"
+        
+        if status == "A" :   
+            return partition,status
+            
+        if astat == "A" :        #If athres cannot be divided further
+            partition.append(part[athres])
+        elif astat == "NA" :     #If athres can be divided further
+            partition = partition + apartition
+        if bstat == "A" :        #If bthres cannot be divided further
+            partition.append(part[bthres])
+        elif bstat == "NA" :     #If bthres can be divided further
+            partition = partition + bpartition
+    else :
+        print("CP5")
+        status = "A"
+        
+    return partition,status
     
 def ImgSeg(img) :
     '''
@@ -65,8 +128,24 @@ def ImgSeg(img) :
     print("Entered ImgSeg")
     imgSeg = np.zeros(shape(img))
     graph = wgraph(img)
+    #graph = graph.tolil()
+    #graph = graph.tocsr()
     D = Dgraph(graph)
-    athres,bthres = gpart(D,graph)
+    partition,status = recpart(arange(len(img.flatten())),graph,True)
+    print(len(partition))
+    for i in range(0,len(partition)) :
+        athres = partition[i]
+        imgSeg = np.zeros(shape(img))
+        
+        athresc = athres%shape(imgSeg)[1]
+        athresr = (athres-athresc)//shape(imgSeg)[1]
+        
+        imgSeg[athresr,athresc] = img[athresr,athresc]
+        plt.imshow(imgSeg,cmap = "gray")
+        plt.axis("off")
+        plt.show()
+    '''
+    athres,bthres,ncut = gpart(D,graph)
                                     #Obtain the indices
     athresc = athres%shape(imgSeg)[1]
     athresr = (athres-athresc)//shape(imgSeg)[1]
@@ -76,26 +155,30 @@ def ImgSeg(img) :
     #intensity = rn.sample(range(0,255),2)
     intensity = [mean(img[athresr,athresc]),mean(img[bthresr,bthresc])]
     #intensity = [min(img[athresr,athresc]),max(img[bthresr,bthresc])]
-    imgSeg[athresr,athresc] = intensity[0]
-    imgSeg[bthresr,bthresc] = intensity[1]
-    #imgSeg[athresr,athresc] = img[athresr,athresc]
-    #imgSeg[bthresr,bthresc] = img[bthresr,bthresc]
+    #imgSeg[athresr,athresc] = intensity[0]
+    #imgSeg[bthresr,bthresc] = intensity[1]
+    imgSeg[athresr,athresc] = img[athresr,athresc]
+    imgSeg[bthresr,bthresc] = 0#img[bthresr,bthresc]
     
     plt.imshow(imgSeg,cmap = "gray")
+    plt.axis("off")
     plt.show()
-    
+    '''
     return imgSeg
 
 #src = src1[:200,:200]
 #src = src1[150:,100:]
 #src = src1
 src = src2
+#src[:len(src)//2] = 0
 #src = np.zeros((100,100))
 #src[50:,40:90] = 255
 #src[50:75,:25] = 100
 #src[:40,30:] = 200
 #src = src[:,50:]
-plt.imshow(src,cmap = "gray",vmin=0, vmax=1)
+print(shape(src))
+plt.imshow(src,cmap = "gray")
+plt.axis("off")
 plt.show()        
 op = ImgSeg(src)
 #r = 0
